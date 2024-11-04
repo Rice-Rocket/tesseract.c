@@ -28,12 +28,14 @@ Mat4 matmul(Mat4 *a, Mat4 *b) {
     return res;
 }
 
-void plot(char buf[BUF_SIZE], float u, float v, float b) {
-    int x = u * RES_X;
-    int y = v * RES_Y;
+void plot_point(char buf[BUF_SIZE], int x, int y, float b) {
     int o = x + RES_X * y;
     int i = 11 * b;
     buf[o] = i[".,-~:;=!*#$@"];
+}
+
+void plot_point_uv(char buf[BUF_SIZE], float u, float v, float b) {
+    plot_point(buf, u * RES_X, v * RES_Y, b);
 }
 
 int main() {
@@ -41,7 +43,7 @@ int main() {
 
     for (;;) {
         memset(buf, 32, BUF_SIZE);
-        plot(buf, 0.5, 0.5, 1.0);
+        plot_point_uv(buf, 0.5, 0.5, 1.0);
         for (int k = 0; 1761 > k; k++)
             putchar(k % 80 ? buf[k] : 10);
         usleep(15000);

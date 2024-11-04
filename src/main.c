@@ -1,3 +1,5 @@
+#include "matrix.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -5,28 +7,6 @@
 const int RES_X = 80;
 const int RES_Y = 22;
 const int BUF_SIZE = RES_X * RES_Y;
-
-typedef struct {
-    float v[4][4];
-} Mat4;
-
-Mat4 matmul(Mat4 *a, Mat4 *b) {
-    Mat4 res;
-
-    for (int x = 0; x < 4; x++) {
-        for (int y = 0; y < 4; y++) {
-            float sum = 0;
-
-            for (int k = 0; k < 4; k++) {
-                sum += a->v[x][k] * b->v[k][y];
-            }
-
-            res.v[x][y] = sum;
-        }
-    }
-
-    return res;
-}
 
 void plot_point(char buf[BUF_SIZE], int x, int y, float b) {
     int o = x + RES_X * y;
@@ -62,6 +42,12 @@ void plot_line_uv(char buf[BUF_SIZE], float u0, float v0, float u1, float v1) {
 
 int main() {
     char buf[BUF_SIZE];
+    Vec4 points[16] = {
+        {-1, -1, 1, 1},   {1, -1, 1, 1},   {1, 1, 1, 1},   {-1, 1, 1, 1},
+        {-1, -1, -1, 1},  {1, -1, -1, 1},  {1, 1, -1, 1},  {-1, 1, -1, 1},
+        {-1, -1, 1, -1},  {1, -1, 1, -1},  {1, 1, 1, -1},  {-1, 1, 1, -1},
+        {-1, -1, -1, -1}, {1, -1, -1, -1}, {1, 1, -1, -1}, {-1, 1, -1, -1},
+    };
 
     for (;;) {
         memset(buf, 32, BUF_SIZE);

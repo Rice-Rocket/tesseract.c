@@ -2,11 +2,12 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-const int RES_X = 80;
-const int RES_Y = 22;
+const int RES_X = 160;
+const int RES_Y = 44;
 const int BUF_SIZE = RES_X * RES_Y;
 
 void plot_point(char buf[BUF_SIZE], int x, int y, float b) {
@@ -19,21 +20,69 @@ void plot_point_uv(char buf[BUF_SIZE], float u, float v, float b) {
     plot_point(buf, u * RES_X, v * RES_Y, b);
 }
 
-// Bresenham's line algorithm
-// TODO: Xiaolin Wu's line algorithm
-void plot_line(char buf[BUF_SIZE], int x0, int y0, int x1, int y1) {
+void plot_line_low(char buf[BUF_SIZE], int x0, int y0, int x1, int y1) {
     int dx = x1 - x0;
     int dy = y1 - y0;
+    int yi = 1;
+
+    if (dy < 0) {
+        yi = -1;
+        dy = -dy;
+    }
+
     int d = 2 * dy - dx;
     int y = y0;
 
     for (int x = x0; x <= x1; x++) {
-        plot_point(buf, x, y, 1.0);
+        plot_point(buf, x, y, 0.5);
         if (d > 0) {
-            y++;
-            d -= 2 * dx;
+            y += yi;
+            d += 2 * (dy - dx);
+        } else {
+            d += 2 * dy;
         }
-        d += 2 * dy;
+    }
+}
+
+void plot_line_high(char buf[BUF_SIZE], int x0, int y0, int x1, int y1) {
+    int dx = x1 - x0;
+    int dy = y1 - y0;
+    int xi = 1;
+
+    if (dx < 0) {
+        xi = -1;
+        dx = -dx;
+    }
+
+    int d = 2 * dx - dy;
+    int x = x0;
+
+    for (int y = y0; y <= y1; y++) {
+        plot_point(buf, x, y, 0.5);
+        if (d > 0) {
+            x += xi;
+            d += 2 * (dx - dy);
+        } else {
+            d += 2 * dx;
+        }
+    }
+}
+
+// Bresenham's line algorithm
+// TODO: Xiaolin Wu's line algorithm
+void plot_line(char buf[BUF_SIZE], int x0, int y0, int x1, int y1) {
+    if (abs(y1 - y0) < abs(x1 - x0)) {
+        if (x0 > x1) {
+            plot_line_low(buf, x1, y1, x0, y0);
+        } else {
+            plot_line_low(buf, x0, y0, x1, y1);
+        }
+    } else {
+        if (y0 > y1) {
+            plot_line_high(buf, x1, y1, x0, y0);
+        } else {
+            plot_line_high(buf, x0, y0, x1, y1);
+        }
     }
 }
 
@@ -41,15 +90,22 @@ void plot_line_uv(char buf[BUF_SIZE], float u0, float v0, float u1, float v1) {
     plot_line(buf, u0 * RES_X, v0 * RES_Y, u1 * RES_X, v1 * RES_Y);
 }
 
+void connect_point(char buf[BUF_SIZE], Vec2 points[16], int i, int j,
+                   int offset) {
+    Vec2 a = points[i + offset];
+    Vec2 b = points[j + offset];
+    plot_line_uv(buf, a.m[0], a.m[1], b.m[0], b.m[1]);
+}
+
+const Vec4 points[16] = {
+    {-1, -1, 1, 1},   {1, -1, 1, 1},   {1, 1, 1, 1},   {-1, 1, 1, 1},
+    {-1, -1, -1, 1},  {1, -1, -1, 1},  {1, 1, -1, 1},  {-1, 1, -1, 1},
+    {-1, -1, 1, -1},  {1, -1, 1, -1},  {1, 1, 1, -1},  {-1, 1, 1, -1},
+    {-1, -1, -1, -1}, {1, -1, -1, -1}, {1, 1, -1, -1}, {-1, 1, -1, -1},
+};
+
 int main() {
     char buf[BUF_SIZE];
-
-    Vec4 points[16] = {
-        {-1, -1, 1, 1},   {1, -1, 1, 1},   {1, 1, 1, 1},   {-1, 1, 1, 1},
-        {-1, -1, -1, 1},  {1, -1, -1, 1},  {1, 1, -1, 1},  {-1, 1, -1, 1},
-        {-1, -1, 1, -1},  {1, -1, 1, -1},  {1, 1, 1, -1},  {-1, 1, 1, -1},
-        {-1, -1, -1, -1}, {1, -1, -1, -1}, {1, 1, -1, -1}, {-1, 1, -1, -1},
-    };
 
     Vec2 projected_points[16] = {
         {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
@@ -59,7 +115,7 @@ int main() {
     Mat3 tesseract_rotation = R3x(0, -1); // theta = -pi/2
     float angle = 0;
     Vec2 cube_position = {.m = {0.5, 0.5}};
-    float cube_scale = 3.0;
+    float cube_scale = 4.0;
 
     for (;;) {
         memset(buf, 32, BUF_SIZE);
@@ -80,9 +136,9 @@ int main() {
 
         // Project points
         for (int i = 0; i < 16; i++) {
-            Vec4 point = points[i];
+            Vec4 r3 = points[i];
 
-            Vec4 r3 = matmul4(&rxy, &point);
+            r3 = matmul4(&rxy, &r3);
             r3 = matmul4(&rzw, &r3);
 
             float distance = 5;
@@ -97,8 +153,8 @@ int main() {
 
             Vec4 proj_3 = matmul4(&proj_m4, &r3);
             Vec3 r2 = {.m = {proj_3.m[0], proj_3.m[1], proj_3.m[2]}};
-            // r2 = matmul3(&tesseract_rotation, &r2);
-            r2 = matmul3(&rx, &r2);
+            r2 = matmul3(&tesseract_rotation, &r2);
+            // r2 = matmul3(&ry, &r2);
 
             float z = 1.0 / (distance - (r2.m[2] + r3.m[3]));
             Mat3 proj_m3 = {.m = {{z, 0, 0}, {0, z, 0}, {0, 0, 1}}};
@@ -115,12 +171,28 @@ int main() {
                           projected_points[i].m[1], 1.0);
         }
 
+        for (int m = 0; m < 4; m++) {
+            connect_point(buf, projected_points, m, (m + 1) % 4, 8);
+            connect_point(buf, projected_points, m + 4, ((m + 1) % 4) + 4, 8);
+            connect_point(buf, projected_points, m, m + 4, 8);
+        }
+
+        for (int m = 0; m < 4; m++) {
+            connect_point(buf, projected_points, m, (m + 1) % 4, 0);
+            connect_point(buf, projected_points, m + 4, ((m + 1) % 4) + 4, 0);
+            connect_point(buf, projected_points, m, m + 4, 0);
+        }
+
+        for (int m = 0; m < 8; m++) {
+            connect_point(buf, projected_points, m, m + 8, 0);
+        }
+
         angle += 0.01;
 
-        for (int k = 0; 1761 > k; k++)
-            putchar(k % 80 ? buf[k] : 10);
+        for (int k = 0; BUF_SIZE + 1 > k; k++)
+            putchar(k % RES_X ? buf[k] : 10);
         usleep(15000);
-        printf("\x1b[23A");
+        printf("\x1b[%dA", RES_Y + 1);
     }
 
     return 0;

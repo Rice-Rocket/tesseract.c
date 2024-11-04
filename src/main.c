@@ -10,6 +10,11 @@ const int RES_X = 160;
 const int RES_Y = 44;
 const int BUF_SIZE = RES_X * RES_Y;
 
+void plot_char(char buf[BUF_SIZE], int x, int y, char c) {
+    int o = x + RES_X * y;
+    buf[o] = c;
+}
+
 void plot_point(char buf[BUF_SIZE], int x, int y, float b) {
     int o = x + RES_X * y;
     int i = 11 * b;
@@ -24,22 +29,109 @@ void plot_line_low(char buf[BUF_SIZE], int x0, int y0, int x1, int y1) {
     int dx = x1 - x0;
     int dy = y1 - y0;
     int yi = 1;
+    char line_chars[11];
+
+    int m;
+    if (dy == 0) {
+        m = 11;
+    } else {
+        int md = abs(dx / dy);
+        m = md < 11 ? md : 11;
+    }
 
     if (dy < 0) {
         yi = -1;
         dy = -dy;
+
+        switch (m) {
+        case 1:
+            strcpy(line_chars, "/         ");
+            break;
+        case 2:
+            strcpy(line_chars, "_^        ");
+            break;
+        case 3:
+            strcpy(line_chars, "_-^       ");
+            break;
+        case 4:
+            strcpy(line_chars, "_--^      ");
+            break;
+        case 5:
+            strcpy(line_chars, "__-^^     ");
+            break;
+        case 6:
+            strcpy(line_chars, "__--^^    ");
+            break;
+        case 7:
+            strcpy(line_chars, "__---^^   ");
+            break;
+        case 8:
+            strcpy(line_chars, "___--^^^  ");
+            break;
+        case 9:
+            strcpy(line_chars, "___---^^^ ");
+            break;
+        case 10:
+            strcpy(line_chars, "____--^^^^");
+            break;
+        default:
+            strcpy(line_chars, "----------");
+            break;
+        }
+    } else {
+        switch (m) {
+        case 1:
+            strcpy(line_chars, "\\         ");
+            break;
+        case 2:
+            strcpy(line_chars, "^_        ");
+            break;
+        case 3:
+            strcpy(line_chars, "^-_       ");
+            break;
+        case 4:
+            strcpy(line_chars, "^--_      ");
+            break;
+        case 5:
+            strcpy(line_chars, "^^-__     ");
+            break;
+        case 6:
+            strcpy(line_chars, "^^--__    ");
+            break;
+        case 7:
+            strcpy(line_chars, "^^---__   ");
+            break;
+        case 8:
+            strcpy(line_chars, "^^^--___  ");
+            break;
+        case 9:
+            strcpy(line_chars, "^^^---___ ");
+            break;
+        case 10:
+            strcpy(line_chars, "^^^^--____");
+            break;
+        default:
+            strcpy(line_chars, "----------");
+            break;
+        }
     }
 
     int d = 2 * dy - dx;
     int y = y0;
+    int run = 0;
+    m = m < 10 ? m : 10;
+    m--;
 
-    for (int x = x0; x <= x1; x++) {
-        plot_point(buf, x, y, 0.5);
+    for (int x = x0, i = 0; x <= x1; x++, i = (i + 1) % m) {
+        char c = line_chars[run < m ? run : m];
+        plot_char(buf, x, y, c);
         if (d > 0) {
             y += yi;
             d += 2 * (dy - dx);
+            run = 0;
         } else {
             d += 2 * dy;
+            run += 1;
         }
     }
 }
@@ -58,7 +150,7 @@ void plot_line_high(char buf[BUF_SIZE], int x0, int y0, int x1, int y1) {
     int x = x0;
 
     for (int y = y0; y <= y1; y++) {
-        plot_point(buf, x, y, 0.5);
+        plot_char(buf, x, y, '|');
         if (d > 0) {
             x += xi;
             d += 2 * (dx - dy);
@@ -69,7 +161,6 @@ void plot_line_high(char buf[BUF_SIZE], int x0, int y0, int x1, int y1) {
 }
 
 // Bresenham's line algorithm
-// TODO: Xiaolin Wu's line algorithm
 void plot_line(char buf[BUF_SIZE], int x0, int y0, int x1, int y1) {
     if (abs(y1 - y0) < abs(x1 - x0)) {
         if (x0 > x1) {
@@ -141,6 +232,7 @@ int main() {
             r3 = matmul4(&rxy, &r3);
             r3 = matmul4(&rzw, &r3);
 
+            // Stereographic projection
             float distance = 5;
             float w = 1.0 / (distance - r3.m[3]);
 
@@ -153,8 +245,8 @@ int main() {
 
             Vec4 proj_3 = matmul4(&proj_m4, &r3);
             Vec3 r2 = {.m = {proj_3.m[0], proj_3.m[1], proj_3.m[2]}};
-            r2 = matmul3(&tesseract_rotation, &r2);
-            // r2 = matmul3(&ry, &r2);
+            // r2 = matmul3(&tesseract_rotation, &r2);
+            r2 = matmul3(&rx, &r2);
 
             float z = 1.0 / (distance - (r2.m[2] + r3.m[3]));
             Mat3 proj_m3 = {.m = {{z, 0, 0}, {0, z, 0}, {0, 0, 1}}};
